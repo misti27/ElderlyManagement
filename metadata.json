@@ -1,0 +1,5 @@
+{
+  "name": "老年卫士管理后台",
+  "description": "老年人状态监测系统的综合Web管理仪表板，具有实时跌倒检测监控、设备管理和健康分析功能。",
+  "requestFramePermissions": []
+}
