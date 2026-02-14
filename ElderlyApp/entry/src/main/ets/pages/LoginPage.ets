@@ -50,8 +50,8 @@ export struct LoginPage {
       // 注意：后端目前主要校验 phone，实际项目中应区分密码登录和验证码登录
       const res = await HttpUtil.post('/auth/login/elderly', {
         phone: this.account,
-        // password: this.password, // 后端暂未校验
-        // code: this.code // 后端暂未校验
+        password: this.password, // 后端暂未校验
+        code: this.code // 后端暂未校验
       });
 
       if (res && res.token) {

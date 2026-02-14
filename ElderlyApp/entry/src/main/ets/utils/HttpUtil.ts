@@ -13,7 +13,7 @@ export class HttpUtil {
     this.token = token;
   }
 
-  static async request(method: http.RequestMethod, url: string, data?: any): Promise<any> {
+  static async request<T>(method: http.RequestMethod, url: string, data?: Object): Promise<T> {
     const httpRequest = http.createHttp();
     const fullUrl = `${Config.getBaseUrl()}${url}`;
 
@@ -38,7 +38,7 @@ export class HttpUtil {
       if (response.responseCode === 200 || response.responseCode === 201) {
         // 解析 JSON
         const result = JSON.parse(response.result as string);
-        return result;
+        return result as T;
       } else if (response.responseCode === 401) {
         // Token 失效
         promptAction.showToast({ message: '登录已过期，请重新登录' });
@@ -58,19 +58,19 @@ export class HttpUtil {
     }
   }
 
-  static get(url: string) {
-    return this.request(http.RequestMethod.GET, url);
+  static get<T>(url: string) {
+    return this.request<T>(http.RequestMethod.GET, url);
   }
 
-  static post(url: string, data: any) {
-    return this.request(http.RequestMethod.POST, url, data);
+  static post<T>(url: string, data: Object) {
+    return this.request<T>(http.RequestMethod.POST, url, data);
   }
 
-  static put(url: string, data: any) {
-    return this.request(http.RequestMethod.PUT, url, data);
+  static put<T>(url: string, data: Object) {
+    return this.request<T>(http.RequestMethod.PUT, url, data);
   }
 
-  static delete(url: string) {
-    return this.request(http.RequestMethod.DELETE, url);
+  static delete<T>(url: string) {
+    return this.request<T>(http.RequestMethod.DELETE, url);
   }
 }

@@ -1,6 +1,7 @@
 
 import http from '@ohos.net.http';
 import promptAction from '@ohos.promptAction';
+import router from '@ohos.router';
 import { Config } from './Config';
 
 /**
@@ -19,11 +20,16 @@ export class HttpUtil {
 
     console.info(`[HttpUtil] Request: ${method} ${fullUrl}`);
 
+    // Safely get token
+    let token = this.token;
+    // REMOVED: AppStorage access in non-UI logic
+    // We rely on setToken being called by EntryAbility or LoginPage
+
     const options: http.HttpRequestOptions = {
       method: method,
       header: {
         'Content-Type': 'application/json',
-        'Authorization': this.token || AppStorage.Get('token') || ''
+        'Authorization': token
       },
       extraData: data,
       readTimeout: 10000,
@@ -41,17 +47,14 @@ export class HttpUtil {
         return result;
       } else if (response.responseCode === 401) {
         // Token 失效
-        promptAction.showToast({ message: '登录已过期，请重新登录' });
-        // TODO: 跳转登录页
-        return Promise.reject('Unauthorized');
+        // Don't use UI APIs here to avoid context issues. Let the caller handle it.
+        return Promise.reject(new Error('Unauthorized'));
       } else {
         const errorMsg = `Request failed with status ${response.responseCode}`;
-        promptAction.showToast({ message: '网络请求失败: ' + response.responseCode });
-        return Promise.reject(errorMsg);
+        return Promise.reject(new Error(errorMsg));
       }
     } catch (err) {
       console.error(`[HttpUtil] Error: ${JSON.stringify(err)}`);
-      promptAction.showToast({ message: '网络连接异常' });
       return Promise.reject(err);
     } finally {
       httpRequest.destroy();

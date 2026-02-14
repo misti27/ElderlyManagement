@@ -24,7 +24,9 @@ struct Index {
 
   checkLogin() {
     const token = AppStorage.Get<string>('token');
-    if (!token) {
+    console.info('Index Page checkLogin, token:', token);
+    if (!token || token === '') {
+      console.warn('Token missing in Index, redirecting to Login');
       router.replaceUrl({ url: 'pages/LoginPage' });
       return;
     }

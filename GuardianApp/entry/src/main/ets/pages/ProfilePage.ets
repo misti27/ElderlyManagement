@@ -4,6 +4,100 @@ import { HttpUtil } from '../utils/HttpUtil';
 import promptAction from '@ohos.promptAction';
 import router from '@ohos.router';
 
+interface ApiResponse {
+  success: boolean;
+  message?: string;
+}
+
+@CustomDialog
+struct InputDialog {
+  controller: CustomDialogController
+  title: string = ''
+  placeholder: string = ''
+  @State inputValue: string = ''
+  onConfirm: (value: string) => void = () => {}
+
+  build() {
+    Column() {
+      Text(this.title).fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 16 })
+      TextInput({ placeholder: this.placeholder, text: this.inputValue })
+        .onChange((value: string) => { this.inputValue = value })
+        .margin({ bottom: 24 })
+        .height(48)
+      Row() {
+        Button('取消')
+          .onClick(() => this.controller.close())
+          .backgroundColor('#F1F5F9')
+          .fontColor('#64748B')
+          .width('45%')
+        Blank()
+        Button('确定')
+          .onClick(() => {
+            this.onConfirm(this.inputValue)
+            this.controller.close()
+          })
+          .backgroundColor('#2563EB')
+          .width('45%')
+      }.width('100%')
+    }
+    .padding(24)
+    .backgroundColor(Color.White)
+    .borderRadius(12)
+    .width('90%')
+  }
+}
+
+@CustomDialog
+struct DualInputDialog {
+  controller: CustomDialogController
+  title: string = ''
+  label1: string = ''
+  placeholder1: string = ''
+  label2: string = ''
+  placeholder2: string = ''
+  @State value1: string = ''
+  @State value2: string = ''
+  onConfirm: (val1: string, val2: string) => void = () => {}
+
+  build() {
+    Column() {
+      Text(this.title).fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 16 })
+      
+      Text(this.label1).fontSize(14).fontColor('#64748B').width('100%').margin({ bottom: 8 })
+      TextInput({ placeholder: this.placeholder1, text: this.value1 })
+        .onChange((value: string) => { this.value1 = value })
+        .margin({ bottom: 16 })
+        .height(48)
+
+      Text(this.label2).fontSize(14).fontColor('#64748B').width('100%').margin({ bottom: 8 })
+      TextInput({ placeholder: this.placeholder2, text: this.value2 })
+        .onChange((value: string) => { this.value2 = value })
+        .margin({ bottom: 24 })
+        .height(48)
+
+      Row() {
+        Button('取消')
+          .onClick(() => this.controller.close())
+          .backgroundColor('#F1F5F9')
+          .fontColor('#64748B')
+          .width('45%')
+        Blank()
+        Button('确定')
+          .onClick(() => {
+            this.onConfirm(this.value1, this.value2)
+            this.controller.close()
+          })
+          .backgroundColor('#2563EB')
+          .width('45%')
+      }.width('100%')
+    }
+    .padding(24)
+    .backgroundColor(Color.White)
+    .borderRadius(12)
+    .width('90%')
+  }
+}
+
 @Component
 export struct ProfilePage {
   @State userName: string = '张伟';
@@ -13,8 +107,36 @@ export struct ProfilePage {
   @State isVibrationEnabled: boolean = true;
   @State isSmsEnabled: boolean = true;
   @State isEditing: boolean = false;
+  @State isManagingElderly: boolean = false; // 管理模式开关
   @State editName: string = '';
   @State editPhone: string = '';
+
+  // 弹窗控制器
+  addElderlyDialog: CustomDialogController = new CustomDialogController({
+    builder: InputDialog({
+      title: '添加家属',
+      placeholder: '请输入长辈手机号',
+      onConfirm: (value: string): void => { this.bindElderly(value) }
+    }),
+    alignment: DialogAlignment.Center
+  })
+
+  // 由于 CustomDialogController 不能动态传参，我们需要为修改备注创建一个临时的状态或者单独的处理逻辑
+  // 这里为了简化，我们定义一个通用的修改备注的方法，具体弹窗在点击时重新实例化或通过状态控制
+  // 但 ArkTS 中 Controller 必须在成员变量定义。
+  // 变通方法：使用一个状态变量 currentEditElderlyId，配合一个通用的 editDialog
+  @State currentEditElderlyId: string = '';
+  editRelationDialog: CustomDialogController = new CustomDialogController({
+    builder: DualInputDialog({
+      title: '修改关系称呼',
+      label1: '我的界面显示 (如: 父亲)',
+      placeholder1: '请输入您的称呼',
+      label2: '长辈界面显示 (如: 儿子)',
+      placeholder2: '请输入长辈对您的称呼',
+      onConfirm: (v1: string, v2: string): void => { this.updateRelation(this.currentEditElderlyId, v1, v2) }
+    }),
+    alignment: DialogAlignment.Center
+  })
 
   aboutToAppear() {
     this.editName = this.userName;
@@ -40,6 +162,54 @@ export struct ProfilePage {
       this.isLoading = false;
     }
   }
+
+  // --- API Methods ---
+
+  async bindElderly(phone: string) {
+    if (!phone) return;
+    try {
+      const res = await HttpUtil.post<ApiResponse>('/guardian/bind', { phone });
+      if (res.success) {
+        promptAction.showToast({ message: '添加成功' });
+        this.fetchElderlyList();
+      } else {
+        promptAction.showToast({ message: res.message || '添加失败' });
+      }
+    } catch (err) {
+      promptAction.showToast({ message: '请求失败，请检查手机号是否正确' });
+    }
+  }
+
+  async unbindElderly(elderlyId: string) {
+    try {
+      const res = await HttpUtil.post<ApiResponse>('/guardian/unbind', { elderlyId });
+      if (res.success) {
+        promptAction.showToast({ message: '已删除' });
+        this.fetchElderlyList();
+      } else {
+        promptAction.showToast({ message: res.message || '删除失败' });
+      }
+    } catch (err) {
+      promptAction.showToast({ message: '请求失败' });
+    }
+  }
+
+  async updateRelation(elderlyId: string, guardianAlias: string, elderlyAlias: string) {
+    if (!guardianAlias) return;
+    try {
+      const res = await HttpUtil.post<ApiResponse>('/guardian/update_relation', { elderlyId, guardianAlias, elderlyAlias });
+      if (res.success) {
+        promptAction.showToast({ message: '修改成功' });
+        this.fetchElderlyList();
+      } else {
+        promptAction.showToast({ message: res.message || '修改失败' });
+      }
+    } catch (err) {
+      promptAction.showToast({ message: '请求失败' });
+    }
+  }
+
+  // --- UI Handlers ---
 
   handleSaveProfile() {
     if (this.editName.trim() === '' || this.editPhone.trim() === '') {
@@ -80,9 +250,35 @@ export struct ProfilePage {
     });
   }
 
+  handleDeleteConfirm(elder: ElderlyLocal) {
+    promptAction.showDialog({
+      title: '确认删除',
+      message: `确定要移除与 ${elder.name} 的绑定关系吗？`,
+      buttons: [
+        { text: '取消', color: '#64748B' },
+        { text: '删除', color: '#EF4444' }
+      ]
+    }).then(result => {
+      if (result.index === 1) {
+        this.unbindElderly(elder.id);
+      }
+    });
+  }
+
   build() {
     Scroll() {
       Column() {
+        // 顶部标题栏
+        Row() {
+          Text('个人信息')
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#1a1a1a')
+          Blank()
+        }
+        .width('100%')
+        .padding({ left: 20, right: 20, top: 10, bottom: 10 })
+
         // 1. 个人资料卡片 (支持编辑)
         if (this.isEditing) {
           Column() {
@@ -190,9 +386,10 @@ export struct ProfilePage {
           .margin({ bottom: 12 })
         }
 
-        // 2. 我的家属 (直接展示列表)
+        // 2. 我的家属
         Column() {
-          this.SectionHeader('我的家属')
+          // 标题栏，带管理按钮
+          this.SectionHeader('我的家属', true)
           
           if (this.elderlyList.length > 0) {
             ForEach(this.elderlyList, (elder: ElderlyLocal, index: number) => {
@@ -201,23 +398,60 @@ export struct ProfilePage {
                   Divider().color('#F1F5F9').padding({ left: 16, right: 16 })
                 }
                 Row() {
-                  Text(elder.name)
-                    .fontSize(18)
-                    .fontColor('#1E293B')
-                    .fontWeight(FontWeight.Medium)
-                  Text(elder.relation)
-                    .fontSize(16)
-                    .fontColor('#64748B')
-                    .margin({ top: 2, left:10 })
+                  // 姓名 & 关系
+                  Column() {
+                    Row() {
+                        Text(elder.name)
+                            .fontSize(18)
+                            .fontColor('#1E293B')
+                            .fontWeight(FontWeight.Medium)
+                        
+                        if (!this.isManagingElderly) {
+                            Text(elder.relation)
+                                .fontSize(14)
+                                .fontColor('#64748B')
+                                .backgroundColor('#F1F5F9')
+                                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                                .borderRadius(4)
+                                .margin({ left: 8 })
+                        }
+                    }
+                    
+                    if (this.isManagingElderly) {
+                        // 移除 ID 显示
+                    }
+                  }
+                  .alignItems(HorizontalAlign.Start)
                   
                   Blank()
                   
-                  Text(elder.phone)
-                    .fontSize(18)
-                    .fontColor('#2563EB')
-                    .onClick(() => {
-                      this.handleCall(elder.phone);
-                    })
+                  if (this.isManagingElderly) {
+                    // 管理模式：显示编辑和删除
+                    Row({ space: 16 }) {
+                        // 修改备注
+                        Text('修改')
+                            .fontColor('#2563EB')
+                            .fontSize(14)
+                            .onClick(() => {
+                                this.currentEditElderlyId = elder.id;
+                                this.editRelationDialog.open();
+                            })
+
+                        // 删除
+                        Text('删除')
+                            .fontColor('#EF4444')
+                            .fontSize(14)
+                            .onClick(() => {
+                                this.handleDeleteConfirm(elder);
+                            })
+                    }
+                  } else {
+                    // 普通模式：显示电话拨打
+                    Text(elder.phone)
+                        .fontSize(16)
+                        .fontColor('#2563EB')
+                        .onClick(() => this.handleCall(elder.phone))
+                  }
                 }
                 .width('100%')
                 .padding(16)
@@ -225,9 +459,28 @@ export struct ProfilePage {
             })
           } else {
             Text('暂无守护长辈')
-              .fontSize(18)
+              .fontSize(16)
               .fontColor('#94A3B8')
-              .padding(16)
+              .padding(24)
+              .width('100%')
+              .textAlign(TextAlign.Center)
+          }
+
+          // 管理模式下显示添加按钮
+          if (this.isManagingElderly) {
+            Divider().color('#F1F5F9')
+            Row() {
+                Text('+ 添加家属')
+                    .fontSize(16)
+                    .fontColor('#2563EB')
+                    .fontWeight(FontWeight.Medium)
+            }
+            .width('100%')
+            .justifyContent(FlexAlign.Center)
+            .padding(16)
+            .onClick(() => {
+                this.addElderlyDialog.open();
+            })
           }
         }
         .backgroundColor(Color.White)
@@ -311,13 +564,27 @@ export struct ProfilePage {
     .width('100%')
     .height('100%')
     .backgroundColor('#F8FAFC')
+    .align(Alignment. Top)
   }
 
-  @Builder SectionHeader(title: string) {
-    Text(title)
-      .fontSize(20)
-      .width('100%')
-      .padding({ left: 16, top: 16, bottom: 8 })
-      .fontWeight(600)
+  @Builder SectionHeader(title: string, showManage: boolean = false) {
+    Row() {
+      Text(title)
+        .fontSize(20)
+        .fontWeight(600)
+      
+      Blank()
+
+      if (showManage) {
+        Text(this.isManagingElderly ? '完成' : '管理')
+          .fontSize(16)
+          .fontColor('#2563EB')
+          .onClick(() => {
+            this.isManagingElderly = !this.isManagingElderly;
+          })
+      }
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 16, bottom: 8 })
   }
 }

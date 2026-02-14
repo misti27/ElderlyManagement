@@ -217,9 +217,126 @@ router.post("/elderly/sos", async (req, res) => {
     }
 });
 
-// ==========================================
-// Guardian Routes
-// ==========================================
+router.get("/elderly/guardians", async (req, res) => {
+    const ctx = getContext(req);
+    if (ctx.role !== 'elderly') return res.status(401).send("Unauthorized");
+
+    try {
+        const guardians = await sequelize.query(`
+            SELECT g.id, g.name, g.phone, g.avatar,
+                   r.elderly_alias as relation_desc,
+                   r.relationship as original_relation
+            FROM guardian_user g
+            JOIN elderly_guardian_relation r ON g.id = r.guardian_id
+            WHERE r.elderly_id = ?
+        `, {
+            replacements: [ctx.id],
+            type: QueryTypes.SELECT
+        });
+
+        const result = guardians.map(g => ({
+            id: g.id.toString(),
+            name: g.name,
+            phone: g.phone,
+            relation: g.relation_desc || g.original_relation || '亲属',
+            avatarUrl: g.avatar
+        }));
+
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post("/elderly/bind", async (req, res) => {
+    const ctx = getContext(req);
+    if (ctx.role !== 'elderly') return res.status(401).send("Unauthorized");
+    
+    const { phone } = req.body;
+    if (!phone) return res.status(400).send("Missing phone");
+
+    try {
+        const guardian = await sequelize.query("SELECT * FROM guardian_user WHERE phone = ?", {
+            replacements: [phone],
+            type: QueryTypes.SELECT
+        });
+        
+        if (guardian.length === 0) {
+            return res.status(404).json({ success: false, message: "该手机号未注册" });
+        }
+
+        const guardianId = guardian[0].id;
+
+        const existing = await sequelize.query(
+            "SELECT * FROM elderly_guardian_relation WHERE guardian_id = ? AND elderly_id = ?",
+            {
+                replacements: [guardianId, ctx.id],
+                type: QueryTypes.SELECT
+            }
+        );
+
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: "已经绑定该监护人" });
+        }
+
+        await sequelize.query(
+            "INSERT INTO elderly_guardian_relation (guardian_id, elderly_id, relationship, guardian_alias, elderly_alias, priority) VALUES (?, ?, ?, ?, ?, ?)",
+            {
+                replacements: [guardianId, ctx.id, '亲属', '亲属', '监护人', 1],
+                type: QueryTypes.INSERT
+            }
+        );
+
+        res.json({ success: true, message: "绑定成功" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.post("/elderly/unbind", async (req, res) => {
+    const ctx = getContext(req);
+    if (ctx.role !== 'elderly') return res.status(401).send("Unauthorized");
+
+    const { guardianId } = req.body;
+    if (!guardianId) return res.status(400).send("Missing guardianId");
+
+    try {
+        await sequelize.query(
+            "DELETE FROM elderly_guardian_relation WHERE guardian_id = ? AND elderly_id = ?",
+            {
+                replacements: [guardianId, ctx.id],
+                type: QueryTypes.DELETE
+            }
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.post("/elderly/update_relation", async (req, res) => {
+    const ctx = getContext(req);
+    if (ctx.role !== 'elderly') return res.status(401).send("Unauthorized");
+
+    const { guardianId, guardianAlias, elderlyAlias } = req.body;
+    if (!guardianId) return res.status(400).send("Missing parameters");
+
+    try {
+        await sequelize.query(
+            "UPDATE elderly_guardian_relation SET guardian_alias = ?, elderly_alias = ? WHERE guardian_id = ? AND elderly_id = ?",
+            {
+                replacements: [guardianAlias, elderlyAlias, guardianId, ctx.id],
+                type: QueryTypes.UPDATE
+            }
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
 
 router.get("/guardian/elderly", async (req, res) => {
     const ctx = getContext(req);
@@ -232,7 +349,8 @@ router.get("/guardian/elderly", async (req, res) => {
                    l.location_desc as currentLocation,
                    l.latitude, l.longitude,
                    act.state_name as currentStatus,
-                   r.relationship as relation_desc
+                   r.guardian_alias as relation_desc,
+                   r.relationship as original_relation
             FROM elderly_user e
             JOIN elderly_guardian_relation r ON e.id = r.elderly_id
             LEFT JOIN (
@@ -241,9 +359,9 @@ router.get("/guardian/elderly", async (req, res) => {
                 WHERE id IN (SELECT MAX(id) FROM location_data GROUP BY elderly_id)
             ) l ON e.id = l.elderly_id
             LEFT JOIN (
-                 SELECT elderly_id, state_name
-                 FROM elderly_activity_record
-                 WHERE id IN (SELECT MAX(id) FROM elderly_activity_record GROUP BY elderly_id)
+                SELECT elderly_id, state_name
+                FROM elderly_activity_record
+                WHERE id IN (SELECT MAX(id) FROM elderly_activity_record GROUP BY elderly_id)
             ) act ON e.id = act.elderly_id
             WHERE r.guardian_id = ?
         `, {
@@ -256,7 +374,7 @@ router.get("/guardian/elderly", async (req, res) => {
             id: e.id.toString(),
             name: e.name,
             age: 75,
-            relation: e.relation_desc || '亲属', // Map relationship
+            relation: e.relation_desc || e.original_relation || '亲属', // Map relationship
             avatarUrl: e.avatarUrl,
             phone: e.phone,
             currentStatus: e.currentStatus || '静止',
@@ -353,8 +471,12 @@ router.get("/guardian/alerts", async (req, res) => {
 
         // Filter by Date (YYYY-MM-DD)
         if (date) {
-            query += ` AND DATE(a.alert_time) = ?`;
-            replacements.push(date);
+            console.log(`[Alerts] Querying date: ${date}`);
+            const startDate = `${date} 00:00:00`;
+            const endDate = `${date} 23:59:59`;
+            query += ` AND a.alert_time BETWEEN ? AND ?`;
+            replacements.push(startDate);
+            replacements.push(endDate);
         }
 
         query += ` ORDER BY a.alert_time DESC`;
@@ -417,16 +539,18 @@ router.get("/stats/history/:elderlyId", async (req, res) => {
         }
 
         if (date) {
-            // Notice: In join query table alias is 'ar', in single query it is implicit.
-            // To be safe, let's use flexible condition or alias in single query too? 
-            // Actually single query doesn't use alias.
-            // Let's fix the WHERE clause part.
+            console.log(`[History] Querying date: ${date} for elderly: ${elderlyId}`);
+
+            const startDate = `${date} 00:00:00`;
+            const endDate = `${date} 23:59:59`;
+
             if (elderlyId === 'all') {
-                query += " AND DATE(ar.start_time) = ?";
+                query += " AND ar.start_time BETWEEN ? AND ?";
             } else {
-                query += " AND DATE(start_time) = ?";
+                query += " AND start_time BETWEEN ? AND ?";
             }
-            replacements.push(date);
+            replacements.push(startDate);
+            replacements.push(endDate);
 
             // Timeline order
             if (elderlyId === 'all') {
@@ -489,12 +613,97 @@ router.get("/stats/history/:elderlyId", async (req, res) => {
     }
 });
 
-router.post("/guardian/bind", (req, res) => {
-    res.json({ success: true });
+router.post("/guardian/bind", async (req, res) => {
+    const ctx = getContext(req);
+    if (ctx.role !== 'guardian') return res.status(401).send("Unauthorized");
+
+    const { phone } = req.body;
+    if (!phone) return res.status(400).send("Missing phone");
+
+    try {
+        // Check if elderly exists by phone
+        const elderly = await sequelize.query("SELECT * FROM elderly_user WHERE phone = ?", {
+            replacements: [phone],
+            type: QueryTypes.SELECT
+        });
+
+        if (elderly.length === 0) {
+            return res.status(404).json({ success: false, message: "该手机号未注册" });
+        }
+
+        const elderlyId = elderly[0].id;
+
+        // Check if already bound
+        const existing = await sequelize.query(
+            "SELECT * FROM elderly_guardian_relation WHERE guardian_id = ? AND elderly_id = ?",
+            {
+                replacements: [ctx.id, elderlyId],
+                type: QueryTypes.SELECT
+            }
+        );
+
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: "已经绑定该用户" });
+        }
+
+        // Bind
+        await sequelize.query(
+            "INSERT INTO elderly_guardian_relation (guardian_id, elderly_id, relationship, guardian_alias, elderly_alias, priority) VALUES (?, ?, ?, ?, ?, ?)",
+            {
+                replacements: [ctx.id, elderlyId, '亲属', '长辈', '亲属', 1],
+                type: QueryTypes.INSERT
+            }
+        );
+
+        res.json({ success: true, message: "绑定成功" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
-router.post("/guardian/unbind", (req, res) => {
-    res.json({ success: true });
+router.post("/guardian/unbind", async (req, res) => {
+    const ctx = getContext(req);
+    if (ctx.role !== 'guardian') return res.status(401).send("Unauthorized");
+
+    const { elderlyId } = req.body;
+    if (!elderlyId) return res.status(400).send("Missing elderlyId");
+
+    try {
+        await sequelize.query(
+            "DELETE FROM elderly_guardian_relation WHERE guardian_id = ? AND elderly_id = ?",
+            {
+                replacements: [ctx.id, elderlyId],
+                type: QueryTypes.DELETE
+            }
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.post("/guardian/update_relation", async (req, res) => {
+    const ctx = getContext(req);
+    if (ctx.role !== 'guardian') return res.status(401).send("Unauthorized");
+
+    const { elderlyId, guardianAlias, elderlyAlias } = req.body;
+    if (!elderlyId) return res.status(400).send("Missing parameters");
+
+    try {
+        await sequelize.query(
+            "UPDATE elderly_guardian_relation SET guardian_alias = ?, elderly_alias = ? WHERE guardian_id = ? AND elderly_id = ?",
+            {
+                replacements: [guardianAlias, elderlyAlias, ctx.id, elderlyId],
+                type: QueryTypes.UPDATE
+            }
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 // ==========================================

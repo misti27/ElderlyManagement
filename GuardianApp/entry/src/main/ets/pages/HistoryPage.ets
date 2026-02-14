@@ -28,8 +28,9 @@ export struct HistoryPage {
 
   aboutToAppear() {
     this.fetchElderlyList();
-    // Default fetch history for "all" immediately
-    this.fetchHistory('all');
+    // 默认加载选中日期（即今天）的数据
+    const elderId = this.elderlyList[this.selectedElderIndex]?.id || 'all';
+    this.fetchHistory(elderId);
   }
 
   generateDateList(days: number): string[] {
@@ -81,7 +82,6 @@ export struct HistoryPage {
     this.debugInfo = `Fetching history for ${elderlyId} on ${dateStr}...`;
 
     try {
-      // Use correct endpoint: /stats/history/:elderlyId?date=...
       const url = `/stats/history/${elderlyId}?date=${dateStr}`;
       
       this.debugInfo += `\nRequesting: ${url}`;
@@ -151,13 +151,11 @@ export struct HistoryPage {
               .backgroundColor('#EFF6FF')
               .borderRadius(8)
               .onClick(() => {
-                // 如果列表为空（理论上不应该，因为有默认项），不弹窗
                 if (this.elderlyList.length === 0) {
                   this.debugInfo += '\nList empty, cannot pick';
                   return;
                 }
 
-                // 这里可以使用 TextPickerDialog
                 TextPickerDialog.show({
                   range: this.elderlyList.map(e => e.name),
                   selected: this.selectedElderIndex,

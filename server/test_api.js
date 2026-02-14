@@ -1,27 +1,62 @@
-async function test() {
-    try {
-        const token = "mock-guardian-token";
 
-        // 2. Fetch History for Elder 2 (Li Xiuying) on 2026-02-13
-        const historyUrl = 'http://127.0.0.1:3000/api/stats/history/2?date=2026-02-13';
-        console.log("Fetching:", historyUrl);
+const http = require('http');
 
-        const historyRes = await fetch(historyUrl, {
-            headers: { Authorization: `Bearer ${token}` }
+function request(options, data) {
+    return new Promise((resolve, reject) => {
+        const req = http.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => body += chunk);
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    try {
+                        resolve(JSON.parse(body));
+                    } catch (e) {
+                        resolve(body);
+                    }
+                } else {
+                    reject({ statusCode: res.statusCode, body });
+                }
+            });
         });
-        console.log("History status:", historyRes.status);
 
-        const historyData = await historyRes.json();
-        console.log("History Records Count:", historyData.length);
-        if (historyData.length > 0) {
-            console.log("First record:", historyData[0]);
-        } else {
-            console.log("Result:", historyData);
+        req.on('error', (e) => reject(e));
+
+        if (data) {
+            req.write(JSON.stringify(data));
         }
+        req.end();
+    });
+}
 
-    } catch (e) {
-        console.error("Error:", e.message);
+async function testApi() {
+    try {
+        console.log('Logging in as elderly...');
+        const loginRes = await request({
+            hostname: 'localhost',
+            port: 3000,
+            path: '/api/auth/login/elderly',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        }, { phone: '13800138000' });
+
+        const token = loginRes.token;
+        console.log('Login success, token:', token);
+        console.log('User ID:', loginRes.user.id);
+
+        console.log('Fetching guardians...');
+        const guardiansRes = await request({
+            hostname: 'localhost',
+            port: 3000,
+            path: '/api/elderly/guardians',
+            method: 'GET',
+            headers: { 'Authorization': token }
+        });
+
+        console.log('Guardians:', JSON.stringify(guardiansRes, null, 2));
+
+    } catch (error) {
+        console.error('Test failed:', error);
     }
 }
 
-test();
+testApi();

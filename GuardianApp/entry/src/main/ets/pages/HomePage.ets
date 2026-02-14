@@ -104,7 +104,7 @@ export struct HomePage {
   // 长辈卡片组件
   @Builder ElderCard(item: Elderly) {
     Column() {
-      // 第一行：头像、姓名、状态标签
+      // 第一行：姓名、状态标签
       Row() {
 
         Text(item.name)
@@ -167,7 +167,7 @@ export struct HomePage {
       // 当前状态条
       this.StatusStrip('当前状态：', item.currentStatus, this.getStatusColor(item.currentStatus))
 
-      // 第三行：实时位置条
+      // 实时位置条
       this.StatusStrip('实时位置：', item.currentLocation, '#1E293B')
 
     }
@@ -177,7 +177,7 @@ export struct HomePage {
     .shadow({ radius: 20, color: '#15000000', offsetY: 10 })
   }
 
-  // 修改后的状态条辅助组件：模仿图二样式
+  // 修改后的状态条辅助组件
   @Builder StatusStrip(label: string, value: string, valueColor: string) {
     Row() {
       Text(label)
@@ -186,15 +186,14 @@ export struct HomePage {
         .fontColor('#1E293B')
         .flexShrink(0) // 确保标签不被长文本挤压
 
-      // 关键：加入中间空白挤压，实现左右分布
       Blank()
 
       Text(value)
         .fontSize(15)
         .fontColor(valueColor)
         .layoutWeight(1)
-        .textAlign(TextAlign.Start) // 关键：文字靠右对齐
-        .margin({ left: 10 })     // 避免文字太贴标签
+        .textAlign(TextAlign.Start)
+        .margin({ left: 10 })
     }
     .width('100%')
     .padding({ right: 10, top: 14, bottom: 14 })

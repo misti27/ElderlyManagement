@@ -1,0 +1,1 @@
+SELECT * FROM elderly_db.alert_record;

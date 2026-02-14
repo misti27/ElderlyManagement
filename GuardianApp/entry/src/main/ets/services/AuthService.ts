@@ -20,9 +20,8 @@ export class AuthService {
   static async login(phone: string, code: string): Promise<LoginResponse> {
     // 模拟接口调用
     return HttpUtil.post<LoginResponse>('/auth/login/guardian', { phone, code }).then(res => {
+      // Don't access AppStorage here. Just return the result.
       HttpUtil.setToken(res.token);
-      AppStorage.SetOrCreate('token', res.token); // Persist token
-      AppStorage.SetOrCreate('user', res.user);   // Persist user info
       return res;
     });
 

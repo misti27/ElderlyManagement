@@ -1,8 +1,14 @@
-
 import { AlertRecord, AlertType, AlertLevel, AlertStatus, Elderly, ActivityStatus } from '../model/Types';
 import { ElderlyLocal, LocationCoords, DeviceInfoLocal } from '../model/ViewModels';
 import { HttpUtil } from '../utils/HttpUtil';
 import promptAction from '@ohos.promptAction';
+
+// 定义等级样式的接口，解决 ArkTS 编译报错
+interface AlertLevelStyle {
+  color: string;
+  bgColor: string;
+  tag: string;
+}
 
 @Component
 export struct AlertPage {
@@ -12,8 +18,8 @@ export struct AlertPage {
   @State selectedDateIndex: number = 0;
   @State isLoading: boolean = false;
 
-  // Generate date list for the last 30 days
-  private dateOptions: string[] = this.generateDateList(30);
+  // Generate date list (First is "All Time")
+  private dateOptions: string[] = ['全部时间', ...this.generateDateList(30)];
 
   aboutToAppear() {
     this.fetchElderlyList();
@@ -33,35 +39,25 @@ export struct AlertPage {
     return list;
   }
 
+  // --- 原有逻辑保持不变 ---
   async fetchElderlyList() {
-    // Create "All" option first
     const locationCoords = new LocationCoords();
     locationCoords.latitude = 0;
     locationCoords.longitude = 0;
-
     const device = new DeviceInfoLocal();
     device.deviceId = '';
     device.name = '';
     device.batteryLevel = 0;
     device.isOnline = false;
     device.lastOnlineTime = '';
-
     const allOptionData: Record<string, Object> = {
-      'id': 'all',
-      'name': '全部长辈',
-      'age': 0,
-      'avatarUrl': '',
-      'phone': '',
-      'currentStatus': ActivityStatus.UNKNOWN,
-      'currentLocation': '',
-      'locationCoords': locationCoords,
-      'device': device
+      'id': 'all', 'name': '全部长辈', 'age': 0, 'avatarUrl': '', 'phone': '',
+      'currentStatus': ActivityStatus.UNKNOWN, 'currentLocation': '',
+      'locationCoords': locationCoords, 'device': device
     };
     const allOption = new ElderlyLocal(allOptionData);
-
     try {
       const result = await HttpUtil.get<Object[]>('/guardian/elderly');
-
       if (Array.isArray(result)) {
         const elders = result.map((item: Object) => new ElderlyLocal(item));
         this.elderlyList = [allOption, ...elders];
@@ -69,7 +65,6 @@ export struct AlertPage {
         this.elderlyList = [allOption];
       }
     } catch (err) {
-      console.error('Fetch elderly list failed:', JSON.stringify(err));
       this.elderlyList = [allOption];
     }
   }
@@ -79,45 +74,29 @@ export struct AlertPage {
     try {
       const selectedElder = this.elderlyList[this.selectedElderIndex];
       const elderlyId = selectedElder ? selectedElder.id : 'all';
-      
       const selectedDateStr = this.dateOptions[this.selectedDateIndex];
-      const dateStr = selectedDateStr.replace(/\//g, '-');
-
-      let url = `/guardian/alerts?date=${dateStr}`;
-      // Note: Even if 'all' is selected, we fetch all alerts.
+      
+      let url = '/guardian/alerts';
+      const params: string[] = [];
+      
+      if (selectedDateStr !== '全部时间') {
+        params.push(`date=${selectedDateStr.replace(/\//g, '-')}`);
+      }
+      
       if (elderlyId !== 'all') {
-        url += `&elderlyId=${elderlyId}`;
+        params.push(`elderlyId=${elderlyId}`);
       }
-
+      
+      if (params.length > 0) {
+        url += '?' + params.join('&');
+      }
       const result: AlertRecord[] = await HttpUtil.get<AlertRecord[]>(url);
-
-      if (Array.isArray(result)) {
-        this.alerts = result;
-      } else {
-        this.alerts = [];
-      }
+      this.alerts = Array.isArray(result) ? result : [];
     } catch (err) {
-      console.error('Fetch alerts error:', JSON.stringify(err));
       this.alerts = [];
     } finally {
       this.isLoading = false;
     }
-  }
-
-  getSeverityColor(level: AlertLevel): string {
-    switch (level) {
-      case AlertLevel.HIGH: return '#EF4444'; // Red
-      case AlertLevel.MEDIUM: return '#F59E0B'; // Yellow
-      case AlertLevel.LOW: return '#3B82F6'; // Blue
-      default: return '#3B82F6';
-    }
-  }
-
-  getBorderColor(alert: AlertRecord): string {
-    if (alert.status === AlertStatus.RESOLVED || alert.status === AlertStatus.CONFIRMED) {
-      return '#E2E8F0'; // Grey for processed
-    }
-    return this.getSeverityColor(alert.level);
   }
 
   async handleStatusUpdate(alertId: string, newStatus: AlertStatus) {
@@ -126,16 +105,17 @@ export struct AlertPage {
       this.alerts[index].status = newStatus;
       this.alerts = [...this.alerts];
     }
-    promptAction.showToast({ message: newStatus === AlertStatus.CONFIRMED ? '已确认' : '已处理' });
+    promptAction.showToast({ message: newStatus === AlertStatus.CONFIRMED ? '已确认' : '已解除' });
   }
 
-  // Helper to get gradient colors based on severity
-  getGradientColors(level: AlertLevel): [ResourceColor, ResourceColor] {
-    switch (level) {
-      case AlertLevel.HIGH: return ['#FEE2E2', '#EF4444']; // Red gradient
-      case AlertLevel.MEDIUM: return ['#FEF3C7', '#F59E0B']; // Yellow gradient
-      case AlertLevel.LOW: return ['#DBEAFE', '#3B82F6']; // Blue gradient
-      default: return ['#DBEAFE', '#3B82F6'];
+  // 这里的函数增加了明确的返回类型定义
+  getLevelStyles(level: AlertLevel): AlertLevelStyle {
+    if (level === AlertLevel.HIGH) {
+      return { color: '#E64545', bgColor: '#FFF1F0', tag: '紧急警报' };
+    } else if (level === AlertLevel.MEDIUM) {
+      return { color: '#ED7B2F', bgColor: '#FFF7E6', tag: '注意观察' };
+    } else {
+      return { color: '#2F54EB', bgColor: '#F0F5FF', tag: '日常提醒' };
     }
   }
 
@@ -143,88 +123,84 @@ export struct AlertPage {
   renderAlertList(records: AlertRecord[]) {
     ForEach(records, (alert: AlertRecord) => {
       Column() {
-        // 1. Type
+        // 第一行：类型 + 状态标签
         Row() {
-          Text('报警类型：')
-            .fontSize(14)
-            .fontColor('#000000')
           Text(alert.type)
-            .fontSize(14)
+            .fontSize(20)
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#1A1A1A')
+          Blank()
+          Text(this.getLevelStyles(alert.level).tag)
+            .fontSize(12)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#000000')
-        }
-        .width('100%')
-        .margin({ bottom: 4 })
+            .fontColor(this.getLevelStyles(alert.level).color)
+            .backgroundColor(this.getLevelStyles(alert.level).bgColor)
+            .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+            .borderRadius(6)
+        }.width('100%').margin({ bottom: 6 })
 
-        // 2. Time
-        Row() {
-          Text('时间：')
-            .fontSize(14)
-            .fontColor('#000000')
-          Text(alert.time)
-            .fontSize(14)
-            .fontColor('#000000')
-        }
-        .width('100%')
-        .margin({ bottom: 4 })
+        // 第二行：时间
+        Text(alert.time)
+          .fontSize(13)
+          .fontColor('#999')
+          .width('100%')
+          .margin({ bottom: 12 })
 
-        // 3. Location
+        // 第三行：地址区域
         Row() {
-          Text('地点：')
-            .fontSize(14)
-            .fontColor('#000000')
+          Circle({ width: 6, height: 6 })
+            .fill(this.getLevelStyles(alert.level).color)
+            .margin({ right: 8 })
           Text(alert.location)
             .fontSize(14)
-            .fontColor('#000000')
-            .maxLines(2)
+            .fontColor('#555')
+            .layoutWeight(1)
+            .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
         .width('100%')
+        .padding(10)
+        .backgroundColor('#F7F8FA')
+        .borderRadius(8)
+        .margin({ bottom: 16 })
 
-        // 4. Buttons
+        // 第四行：操作按钮
         if (alert.status !== AlertStatus.RESOLVED) {
-          Row() {
-            // "Confirmed" Button Logic
-            Button('已确认')
-              .backgroundColor(alert.status === AlertStatus.CONFIRMED ? '#E2E8F0' : '#F0F9FF') // Grey if confirmed, else light blue
-              .fontColor(alert.status === AlertStatus.CONFIRMED ? '#94A3B8' : '#000000') // Grey text if confirmed
-              .fontSize(14)
-              .height(32)
-              .layoutWeight(1)
-              .margin({ right: 8 })
-              .enabled(alert.status !== AlertStatus.CONFIRMED) // Disable if already confirmed
+          Row({ space: 12 }) {
+            Button('确认收到')
+              .layoutWeight(1).height(38).fontSize(14)
+              .fontColor(alert.status === AlertStatus.CONFIRMED ? '#BBBBBB' : '#555')
+              .backgroundColor(alert.status === AlertStatus.CONFIRMED ? '#F5F5F5' : '#FFFFFF')
+              .borderWidth(alert.status === AlertStatus.CONFIRMED ? 0 : 1)
+              .borderColor('#E8E8E8')
+              .borderRadius(19)
+              .enabled(alert.status !== AlertStatus.CONFIRMED)
               .onClick(() => this.handleStatusUpdate(alert.id, AlertStatus.CONFIRMED))
-            
-            // "Processed" Button Logic
-            Button('已处理')
-              .backgroundColor('#FEE2E2') // Light Red
-              .fontColor('#000000')
-              .fontSize(14)
-              .height(32)
-              .layoutWeight(1)
+
+            Button('解除警报')
+              .layoutWeight(1).height(38).fontSize(14).fontColor('#FFF')
+              .backgroundColor(this.getLevelStyles(alert.level).color)
+              .borderRadius(19)
               .onClick(() => this.handleStatusUpdate(alert.id, AlertStatus.RESOLVED))
-          }
-          .width('100%')
-          .margin({ top: 12 })
+          }.width('100%')
+        } else {
+          Row() {
+            Text('✓ 已处理').fontSize(14).fontColor('#52C41A').fontWeight(FontWeight.Medium)
+          }.width('100%').justifyContent(FlexAlign.End)
         }
       }
       .width('100%')
       .padding(16)
       .backgroundColor(Color.White)
-      .borderRadius(12)
-      .borderWidth(2)
-      .borderColor(this.getBorderColor(alert))
-      .shadow({ radius: 12, color: 'rgba(0, 0, 0, 0.1)', offsetX: 4, offsetY: 4 })
+      .borderRadius(16)
       .margin({ bottom: 12 })
+      .shadow({ radius: 12, color: '#0A000000', offsetY: 6 })
+      .border({ width: { left: 4 }, color: this.getLevelStyles(alert.level).color }) // 侧边色条
     }, (alert: AlertRecord) => alert.id)
 
     if (records.length === 0) {
       Text(this.isLoading ? '加载中...' : '暂无消息')
-        .fontSize(14)
-        .fontColor('#999')
-        .width('100%')
-        .textAlign(TextAlign.Center)
-        .padding(20)
+        .fontSize(14).fontColor('#999').width('100%').textAlign(TextAlign.Center).padding(20)
     }
   }
 
@@ -232,7 +208,7 @@ export struct AlertPage {
     Column() {
       Scroll() {
         Column({ space: 16 }) {
-
+          // --- 完全保留您的原始查询条件 UI ---
           Column() {
             Text('查询条件')
               .fontSize(20)
@@ -245,14 +221,11 @@ export struct AlertPage {
                 .fontSize(16)
                 .fontColor('#333')
               Blank()
-
               Row() {
                 Text(this.elderlyList[this.selectedElderIndex]?.name || '请选择')
                   .fontSize(16)
                   .fontColor('#3b64cc')
                   .fontWeight(FontWeight.Medium)
-              
-                // Arrow
                 Polygon({ width: 10, height: 6 })
                   .points([[0, 0], [10, 0], [5, 6]])
                   .fill('#3b64cc')
@@ -263,7 +236,6 @@ export struct AlertPage {
               .borderRadius(8)
               .onClick(() => {
                 if (this.elderlyList.length === 0) return;
-
                 TextPickerDialog.show({
                   range: this.elderlyList.map(e => e.name),
                   selected: this.selectedElderIndex,
@@ -282,13 +254,11 @@ export struct AlertPage {
                 .fontSize(16)
                 .fontColor('#333')
               Blank()
-
               Row() {
                 Text(this.dateOptions[this.selectedDateIndex])
                   .fontSize(16)
                   .fontColor('#3b64cc')
                   .fontWeight(FontWeight.Medium)
-                
                 Polygon({ width: 10, height: 6 })
                   .points([[0, 0], [10, 0], [5, 6]])
                   .fill('#3b64cc')
@@ -311,50 +281,38 @@ export struct AlertPage {
             .width('100%')
           }
           .cardStyle()
+          // --- 查询条件结束 ---
 
+          // 列表部分
           if (this.elderlyList[this.selectedElderIndex]?.id === 'all') {
             ForEach(this.elderlyList.slice(1), (elder: Elderly) => {
               Column() {
-                Row() {
-                  Text(`${elder.name} 的报警消息`)
-                    .fontSize(20)
-                    .fontWeight(FontWeight.Bold)
-                }
-                .width('100%')
-                .margin({ bottom: 25 })
-                
+                Text(`${elder.name} 的报警消息`)
+                  .fontSize(18).fontWeight(FontWeight.Bold).fontColor('#666')
+                  .width('100%').margin({ bottom: 12, left: 4 })
                 this.renderAlertList(this.alerts.filter(a => a.elderlyId === elder.id))
-              }
-              .cardStyle()
+              }.width('100%')
             }, (elder: Elderly) => elder.id)
-          } else if (this.elderlyList.length > this.selectedElderIndex) {
-            // Single elderly view
+          } else {
             Column() {
               Text(`${this.elderlyList[this.selectedElderIndex]?.name} 的报警消息`)
-                .fontSize(20)
-                .fontWeight(FontWeight.Bold)
-                .width('100%')
-                .margin({ bottom: 25 })
-
+                .fontSize(18).fontWeight(FontWeight.Bold).fontColor('#666')
+                .width('100%').margin({ bottom: 12, left: 4 })
               this.renderAlertList(this.alerts)
-            }
-            .cardStyle()
+            }.width('100%')
           }
         }
-        .padding({ left: 16, right: 16, bottom: 16, top: 0 })
+        .padding({ left: 16, right: 16, bottom: 16, top: 16 })
       }
       .width('100%')
       .layoutWeight(1)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F8F8F8')
-    .justifyContent(FlexAlign.Start)
-    .alignItems(HorizontalAlign.Center)
+    .backgroundColor('#F4F6F9') // 淡淡的灰蓝色底色，衬托白色卡片
   }
 }
 
-// Reuse card style
 @Styles function cardStyle() {
   .width('100%')
   .backgroundColor(Color.White)
