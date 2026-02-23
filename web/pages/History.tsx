@@ -268,7 +268,7 @@ const History: React.FC = () => {
                                         {timeRangeStr}
                                     </div>
                                     <div className="flex-1">
-                                        <span className={`text-sm ${getActivityTextColor(item.status)}`}>
+                                        <span className={`text-sm ${getActivityColor(item.status)}`}>
                                             {ACTIVITY_LABELS[item.status]}
                                         </span>
                                     </div>
