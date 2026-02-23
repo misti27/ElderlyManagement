@@ -1,67 +1,47 @@
-
-import { HomePage } from './HomePage';
-import { HistoryPage } from './HistoryPage';
-import { ProfilePage } from './ProfilePage';
+import router from '@ohos.router';
+import storage from '@ohos.data.storage';
+import { HttpUtil } from '../utils/HttpUtil';
 
 @Entry
 @Component
 struct Index {
-  @State currentIndex: number = 0;
-  private controller: TabsController = new TabsController();
 
-  @Builder TabBuilder(title: string, targetIndex: number, icon: Resource) {
-    Column() {
-      Image(icon)
-        .width(24)
-        .height(24)
-        .fillColor(this.currentIndex === targetIndex ? '#2563EB' : '#94A3B8')
-        .margin({ bottom: 4 })
-      
-      Text(title)
-        .fontColor(this.currentIndex === targetIndex ? '#2563EB' : '#94A3B8')
-        .fontSize(14)
-        .fontWeight(this.currentIndex === targetIndex ? FontWeight.Bold : FontWeight.Normal)
+  aboutToAppear() {
+    this.checkLogin();
+  }
+
+  async checkLogin() {
+    // 1. 检查是否为游客模式 (从全局UI状态中获取)
+    const isGuest: boolean | undefined = AppStorage.Get<boolean>('isGuest');
+    if (isGuest === true) {
+      console.info('Guest mode detected, navigating to main page.');
+      router.replaceUrl({ url: 'pages/MainPage' });
+      return; // 直接进入主页
     }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
-    .backgroundColor(this.currentIndex === targetIndex ? '#EBF2FF' : 'transparent')
+
+    // 2. 如果不是游客，则检查持久化存储中的 token
+    try {
+      const persistentStorage = await storage.getStorage(getContext(this).filesDir + '/ElderlyAppStorage');
+      const token = await persistentStorage.get('token', '') as string;
+
+      if (token) {
+        console.info('Token found, navigating to main page.');
+        HttpUtil.setToken(token);
+        router.replaceUrl({ url: 'pages/MainPage' });
+      } else {
+        console.info('No token found, navigating to login page.');
+        router.replaceUrl({ url: 'pages/LoginPage' });
+      }
+    } catch (e) {
+      console.error('Failed to check login status', JSON.stringify(e));
+      router.replaceUrl({ url: 'pages/LoginPage' });
+    }
   }
 
   build() {
-    Tabs({ barPosition: BarPosition.End, controller: this.controller }) {
-      TabContent() {
-        HomePage()
-      }
-      .tabBar(this.TabBuilder(
-        '首页', 
-        0, 
-        $r('app.media.icon_home')
-      ))
-
-      TabContent() {
-        HistoryPage()
-      }
-      .tabBar(this.TabBuilder(
-        '历史', 
-        1, 
-        $r('app.media.icon_history')
-      ))
-
-      TabContent() {
-        ProfilePage()
-      }
-      .tabBar(this.TabBuilder(
-        '我的', 
-        2, 
-        $r('app.media.icon_setting')
-      ))
-    }
-    .onChange((index: number) => {
-      this.currentIndex = index;
-    })
-    .backgroundColor(Color.White)
-    .barHeight(60)
+    Column() {
+      Text('加载中...')
+        .fontSize(24)
+    }.width('100%').height('100%')
   }
 }

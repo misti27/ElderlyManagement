@@ -16,6 +16,7 @@ import { getHistoryStats, getHealthReport } from '../services/statsService';
 import { getElderlyList } from '../services/elderlyService';
 import { getDeviceList } from '../services/deviceService';
 import { AlertStatus, ActivityStatus, ACTIVITY_LABELS, User as ElderlyUser, Device, HistoryStats, HealthReport } from '../types';
+import { getActivityColor } from '../services/ColorUtil';
 
 type TimeRange = 'yesterday' | 'week' | 'month';
 
@@ -102,24 +103,7 @@ const History: React.FC = () => {
             durationMap[label] = (durationMap[label] || 0) + duration;
         }
 
-        // 定义图表颜色映射，与列表保持一致
-        const colors: Record<string, string> = {
-            '跌倒': '#ef4444',     // 红色 (Red-500)
-            '静止': '#1e293b',     // 黑色 (Slate-800)
-            '坐下': '#3b82f6',     // 蓝色 (Blue-500)
-            '站立': '#3b82f6',     // 蓝色 (Blue-500)
-            '正常行走': '#10b981', // 绿色 (Emerald-500)
-            '慢跑': '#10b981',     // 绿色 (Emerald-500)
-            '快跑': '#10b981',     // 绿色 (Emerald-500)
-            '上楼': '#10b981',     // 绿色 (Emerald-500)
-            '下楼': '#10b981',     // 绿色 (Emerald-500)
-        };
 
-        return Object.entries(durationMap).map(([name, value]) => ({
-            name,
-            value,
-            color: colors[name] || '#94a3b8'
-        }));
     }, [report]);
 
     const handleUserChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -140,21 +124,7 @@ const History: React.FC = () => {
         }
     };
 
-    const getActivityTextColor = (status: ActivityStatus) => {
-        const colorMap: Record<ActivityStatus, string> = {
-            [ActivityStatus.FALLEN]: 'text-rose-600',       // 红色
-            [ActivityStatus.STILL]: 'text-slate-800',       // 黑色
-            [ActivityStatus.SITTING]: 'text-blue-600',      // 蓝色
-            [ActivityStatus.STANDING]: 'text-blue-600',     // 蓝色
-            [ActivityStatus.WALKING]: 'text-emerald-600',   // 绿色
-            [ActivityStatus.JOGGING]: 'text-emerald-600',   // 绿色
-            [ActivityStatus.RUNNING]: 'text-emerald-600',   // 绿色
-            [ActivityStatus.GOING_UPSTAIRS]: 'text-emerald-600',   // 绿色
-            [ActivityStatus.GOING_DOWNSTAIRS]: 'text-emerald-600', // 绿色
-            [ActivityStatus.UNKNOWN]: 'text-slate-400'
-        };
-        return colorMap[status] || 'text-slate-600';
-    };
+
 
     if (loading && !stats) {
         return <div className="p-6 text-center text-slate-500">加载中...</div>;

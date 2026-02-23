@@ -3,6 +3,9 @@ import { ElderlyLocal } from '../model/ViewModels';
 import { HttpUtil } from '../utils/HttpUtil';
 import promptAction from '@ohos.promptAction';
 import router from '@ohos.router';
+import { MockData } from '../utils/MockData';
+
+
 
 interface ApiResponse {
   success: boolean;
@@ -100,8 +103,8 @@ struct DualInputDialog {
 
 @Component
 export struct ProfilePage {
-  @State userName: string = '张伟';
-  @State userPhone: string = '13900139000';
+  @State userName: string = '';
+  @State userPhone: string = '';
   @State elderlyList: ElderlyLocal[] = [];
   @State isLoading: boolean = true;
   @State isVibrationEnabled: boolean = true;
@@ -121,10 +124,6 @@ export struct ProfilePage {
     alignment: DialogAlignment.Center
   })
 
-  // 由于 CustomDialogController 不能动态传参，我们需要为修改备注创建一个临时的状态或者单独的处理逻辑
-  // 这里为了简化，我们定义一个通用的修改备注的方法，具体弹窗在点击时重新实例化或通过状态控制
-  // 但 ArkTS 中 Controller 必须在成员变量定义。
-  // 变通方法：使用一个状态变量 currentEditElderlyId，配合一个通用的 editDialog
   @State currentEditElderlyId: string = '';
   editRelationDialog: CustomDialogController = new CustomDialogController({
     builder: DualInputDialog({
@@ -139,10 +138,25 @@ export struct ProfilePage {
   })
 
   aboutToAppear() {
+    const isGuest = AppStorage.Get('isGuest') as boolean | undefined;
+    if (isGuest) {
+      this.loadMockData();
+    } else {
+      this.fetchElderlyList();
+    }
     this.editName = this.userName;
     this.editPhone = this.userPhone;
-    this.fetchElderlyList();
   }
+
+  loadMockData() {
+    console.info('Loading mock data for ProfilePage...');
+    this.userName = MockData.userProfile.name;
+    this.userPhone = MockData.userProfile.phone;
+    this.elderlyList = MockData.elderlyList.map(item => new ElderlyLocal(item));
+    this.isLoading = false;
+    promptAction.showToast({ message: '已加载模拟用户及家属数据' });
+  }
+
 
   async fetchElderlyList() {
     try {
@@ -279,7 +293,7 @@ export struct ProfilePage {
         .width('100%')
         .padding({ left: 20, right: 20, top: 10, bottom: 10 })
 
-        // 1. 个人资料卡片 (支持编辑)
+        // 1. 个人资料卡片 
         if (this.isEditing) {
           Column() {
             Text('编辑个人资料')

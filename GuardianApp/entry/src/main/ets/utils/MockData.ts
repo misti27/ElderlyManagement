@@ -2,6 +2,12 @@
 import { Elderly, AlertRecord, HistoryRecord, ActivityStatus, AlertType, AlertLevel, AlertStatus } from '../model/Types';
 
 export class MockData {
+  static userProfile = {
+    name: '模拟用户',
+    phone: '18812345678'
+
+  };
+
   static elderlyList: Elderly[] = [
     {
       id: 'e001',
@@ -14,7 +20,7 @@ export class MockData {
       locationCoords: { latitude: 39.9, longitude: 116.4 },
       device: {
         deviceId: 'd001',
-        name: '智能手环 S1',
+        name: '华为 P70',
         batteryLevel: 85,
         isOnline: true,
         lastOnlineTime: '刚刚'
@@ -31,7 +37,7 @@ export class MockData {
       locationCoords: { latitude: 39.91, longitude: 116.41 },
       device: {
         deviceId: 'd002',
-        name: '智能拐杖 Pro',
+        name: '华为 Mate70',
         batteryLevel: 45,
         isOnline: true,
         lastOnlineTime: '10分钟前'
@@ -65,9 +71,9 @@ export class MockData {
   ];
 
   static history: HistoryRecord[] = [
-    { id: 'h1', status: ActivityStatus.WALKING, startTime: '14:00', endTime: '14:30', duration: '30分钟' },
-    { id: 'h2', status: ActivityStatus.SITTING, startTime: '12:30', endTime: '14:00', duration: '1小时30分' },
-    { id: 'h3', status: ActivityStatus.STILL, startTime: '12:00', endTime: '12:30', duration: '30分钟' },
-    { id: 'h4', status: ActivityStatus.WALKING, startTime: '10:00', endTime: '12:00', duration: '2小时' }
+    { id: 'h1', elderlyId: 'e001', status: ActivityStatus.WALKING, startTime: '14:00', endTime: '14:30', duration: '30分钟' },
+    { id: 'h2', elderlyId: 'e001', status: ActivityStatus.SITTING, startTime: '12:30', endTime: '14:00', duration: '1小时30分' },
+    { id: 'h3', elderlyId: 'e002', status: ActivityStatus.STILL, startTime: '12:00', endTime: '12:30', duration: '30分钟' },
+    { id: 'h4', elderlyId: 'e002', status: ActivityStatus.WALKING, startTime: '10:00', endTime: '12:00', duration: '2小时' }
   ];
 }

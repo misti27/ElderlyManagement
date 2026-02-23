@@ -2,6 +2,7 @@
 import { ActivityStatus } from '../model/Types';
 import { MockData } from '../utils/MockData';
 import promptAction from '@ohos.promptAction';
+import { getActivityColor } from '../utils/ColorUtil';
 
 @Component
 export struct HomePage {
@@ -9,38 +10,6 @@ export struct HomePage {
   @State location: string = '上海市徐汇区幸福路101号';
   @State isAutoMonitor: boolean = true;
   @State currentStatus: string = '正常行走';
-
-  getStatusColor(status: ActivityStatus | string): string {
-    switch (status) {
-      case ActivityStatus.FALLEN:
-      case '跌倒':
-      case '摔倒': // 兼容旧数据
-        return '#EF4444'; // Red
-
-      case ActivityStatus.STILL:
-      case '静止':
-        return '#2da44e'; // Green
-
-      case ActivityStatus.WALKING:
-      case '正常行走':
-      case ActivityStatus.SITTING:
-      case '坐下':
-      case ActivityStatus.STANDING:
-      case '站立':
-      case ActivityStatus.JOGGING:
-      case '慢跑':
-      case ActivityStatus.RUNNING:
-      case '快跑':
-      case ActivityStatus.GOING_UPSTAIRS:
-      case '上楼':
-      case ActivityStatus.GOING_DOWNSTAIRS:
-      case '下楼':
-        return '#3b64cc'; // Blue
-
-      default:
-        return '#3b64cc'; // Default Blue
-    }
-  }
 
   build() {
     Column() {
@@ -55,7 +24,7 @@ export struct HomePage {
           Text(this.currentStatus)
             .fontSize(22)
             .fontWeight(FontWeight.Bold)
-            .fontColor(this.getStatusColor(this.currentStatus)) // 动态颜色
+            .fontColor(getActivityColor(this.currentStatus)) // 动态颜色
         }
         .width('100%')
         .height(80)

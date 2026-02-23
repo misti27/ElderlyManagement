@@ -1,8 +1,9 @@
 import { Elderly, ActivityStatus, DeviceInfo } from '../model/Types';
 import { ElderlyLocal, LocationCoords, DeviceInfoLocal } from '../model/ViewModels';
 import { HttpUtil } from '../utils/HttpUtil';
-import promptAction from '@ohos.promptAction';
 import router from '@ohos.router';
+import { getActivityColor } from '../utils/ColorUtil';
+import { MockData } from '../utils/MockData'; // 引入模拟数据
 
 @Component
 export struct HomePage {
@@ -10,11 +11,30 @@ export struct HomePage {
   @State isLoading: boolean = false;
 
   aboutToAppear() {
-    this.fetchElderlyList();
+    const isGuest = AppStorage.Get('isGuest') as boolean | undefined;
+    if (isGuest) {
+      this.loadMockData();
+    } else {
+      this.fetchElderlyList();
+    }
   }
 
   onPageShow() {
-    this.fetchElderlyList();
+    const isGuest = AppStorage.Get('isGuest') as boolean | undefined;
+    if (isGuest) {
+      // Guest mode might not need refresh on show, or could re-load mock data
+      // this.loadMockData(); 
+    } else {
+      this.fetchElderlyList();
+    }
+  }
+
+  loadMockData() {
+    this.isLoading = true;
+    console.info('Loading mock data for guest mode...');
+    // Directly use the mock data
+    this.elderlyList = MockData.elderlyList.map(item => new ElderlyLocal(item));
+    this.isLoading = false;
   }
 
   async fetchElderlyList() {
@@ -32,38 +52,6 @@ export struct HomePage {
       // HttpUtil 已经 toast 报错，这里不需要再次 toast，除非有特定业务逻辑
     } finally {
       this.isLoading = false;
-    }
-  }
-
-  getStatusColor(status: ActivityStatus | string): string {
-    switch (status) {
-      case ActivityStatus.FALLEN:
-      case '跌倒':
-      case '摔倒':
-        return '#EF4444'; // Red
-
-      case ActivityStatus.STILL:
-      case '静止':
-        return '#2da44e'; // Green
-
-      case ActivityStatus.WALKING:
-      case '正常行走':
-      case ActivityStatus.SITTING:
-      case '坐下':
-      case ActivityStatus.STANDING:
-      case '站立':
-      case ActivityStatus.JOGGING:
-      case '慢跑':
-      case ActivityStatus.RUNNING:
-      case '快跑':
-      case ActivityStatus.GOING_UPSTAIRS:
-      case '上楼':
-      case ActivityStatus.GOING_DOWNSTAIRS:
-      case '下楼':
-        return '#3b64cc'; // Blue
-
-      default:
-        return '#3b64cc'; // Default Blue
     }
   }
 
@@ -165,7 +153,7 @@ export struct HomePage {
       .margin({ top: 15, bottom: 20})
 
       // 当前状态条
-      this.StatusStrip('当前状态：', item.currentStatus, this.getStatusColor(item.currentStatus))
+      this.StatusStrip('当前状态：', item.currentStatus, getActivityColor(item.currentStatus))
 
       // 实时位置条
       this.StatusStrip('实时位置：', item.currentLocation, '#1E293B')

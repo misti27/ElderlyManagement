@@ -1,12 +1,20 @@
 
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
+import storage from '@ohos.data.storage';
 
 import { HttpUtil } from '../utils/HttpUtil';
 
+
+interface LoginResponse {
+  token: string;
+  user: object;
+  message?: string;
+}
+
 @Entry
 @Component
-export struct LoginPage {
+struct LoginPage {
   @State account: string = '';
   @State password: string = '';
   @State code: string = '';
@@ -46,27 +54,29 @@ export struct LoginPage {
     }
 
     try {
-      // 对接真实登录接口
-      // 注意：后端目前主要校验 phone，实际项目中应区分密码登录和验证码登录
-      const res = await HttpUtil.post('/auth/login/elderly', {
+      const res = await HttpUtil.post<LoginResponse>('/login', {
         phone: this.account,
         password: this.password, // 后端暂未校验
         code: this.code // 后端暂未校验
       });
 
       if (res && res.token) {
+        // 获取应用的持久化存储实例
+        const appStorage = await storage.getStorage(getContext(this).filesDir + '/ElderlyAppStorage');
         // 保存 Token
-        AppStorage.SetOrCreate('token', res.token);
+        await appStorage.put('token', res.token);
+        // 更新 HttpUtil 中的 Token
         HttpUtil.setToken(res.token);
-        
+
         promptAction.showToast({ message: '登录成功' });
-        router.replaceUrl({ url: 'pages/Index' });
+        // 跳转到主页
+        router.replaceUrl({ url: 'pages/MainPage' });
       } else {
-        promptAction.showToast({ message: '登录失败: 无效的响应' });
+        promptAction.showToast({ message: res?.message || '登录失败: 无效的响应' });
       }
     } catch (err) {
-      // 错误处理已在 HttpUtil 中统一处理，这里可额外提示
       console.error('Login failed:', JSON.stringify(err));
+      // 错误处理已在 HttpUtil 中统一处理，这里无需额外全局提示
     }
   }
 
@@ -179,7 +189,7 @@ export struct LoginPage {
               })
 
             Button(this.countdown > 0 ? `${this.countdown}s` : '获取验证码')
-              .height(55)
+              .height(45)
               .width(120)
               .fontSize(14)
               .backgroundColor(this.countdown > 0 ? '#CBD5E1' : '#3258c8')
@@ -209,9 +219,37 @@ export struct LoginPage {
           this.handleLogin();
         })
 
+      // 7. 跳过登录 (游客模式)
+      Button('跳过登录 (测试用)')
+        .width(180)
+        .height(30)
+        .fontSize(12)
+        .fontColor('#94A3B8')
+        .backgroundColor('transparent')
+        .margin({ top: 32 })
+        .onClick(async () => {
+          try {
+            // 设置游客模式标志
+            AppStorage.SetOrCreate('isGuest', true);
+
+            // 清除持久化存储中的 token
+            const appStorage = await storage.getStorage(getContext(this).filesDir + '/ElderlyAppStorage');
+            await appStorage.delete('token');
+            HttpUtil.setToken(''); // 同时清除 HttpUtil 中的 token
+
+            // 跳转到 Index 页面重新进行登录检查
+            await router.replaceUrl({ url: 'pages/Index' });
+            promptAction.showToast({ message: '已进入游客模式' });
+          } catch (err) {
+            let error = err as Error;
+            console.error('Guest mode navigation failed:', JSON.stringify(err));
+            promptAction.showToast({ message: '跳转失败: ' + (err.message || '未知错误') });
+          }
+        })
+
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#D3D3D3') // 页面整体背景颜色
+    .backgroundColor('#F5F7FA') // 页面整体背景颜色
   }
 }

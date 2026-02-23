@@ -3,6 +3,8 @@ import { HistoryRecord, ActivityStatus, Elderly } from '../model/Types';
 import { ElderlyLocal } from '../model/ViewModels';
 import { HttpUtil } from '../utils/HttpUtil';
 import promptAction from '@ohos.promptAction';
+import { getActivityColor } from '../utils/ColorUtil';
+import { MockData } from '../utils/MockData'; // 引入模拟数据
 
 @Component
 export struct HistoryPage {
@@ -21,16 +23,36 @@ export struct HistoryPage {
     device: { deviceId: '', name: '', batteryLevel: 0, isOnline: false, lastOnlineTime: '' }
   }];
   @State isLoading: boolean = false;
-  @State debugInfo: string = ''; // Debug info for user
+  @State debugInfo: string = '';
   
   // 生成最近30天的日期列表
   private dateOptions: string[] = this.generateDateList(30);
 
   aboutToAppear() {
-    this.fetchElderlyList();
-    // 默认加载选中日期（即今天）的数据
-    const elderId = this.elderlyList[this.selectedElderIndex]?.id || 'all';
-    this.fetchHistory(elderId);
+    const isGuest = AppStorage.Get('isGuest') as boolean | undefined;
+    if (isGuest) {
+      this.loadMockData();
+    } else {
+      this.fetchElderlyList().then(() => {
+        // 默认加载选中日期（即今天）的数据
+        const elderId = this.elderlyList[this.selectedElderIndex]?.id || 'all';
+        this.fetchHistory(elderId);
+      });
+    }
+  }
+
+  loadMockData() {
+    console.info('Loading mock data for HistoryPage...');
+    // 1. 加载模拟的长辈列表
+    const allOption = this.elderlyList[0]; // Keep '全部长辈'
+    const mockElders = MockData.elderlyList.map(item => new ElderlyLocal(item));
+    this.elderlyList = [allOption, ...mockElders];
+
+    // 2. 加载模拟的历史记录
+    // Here we can load all mock history records, the UI will filter them
+    this.records = MockData.history;
+
+    promptAction.showToast({ message: '已加载模拟历史数据' });
   }
 
   generateDateList(days: number): string[] {
@@ -56,7 +78,6 @@ export struct HistoryPage {
       this.debugInfo += `\nStatus: Success`;
 
       if (Array.isArray(result)) {
-        // Keep the "All Elderly" option at the beginning
         const allOption = this.elderlyList[0];
         const elders = result.map((item: Object): ElderlyLocal => new ElderlyLocal(item));
         
@@ -115,7 +136,6 @@ export struct HistoryPage {
   build() {
     Column() {
       // 如果正在加载且没有数据，显示加载中（可选，这里直接让它渲染结构）
-      // 只要结构在，哪怕数据为空，查询框也应该显示
 
       Scroll() {
         Column({ space: 16 }) {
@@ -249,8 +269,7 @@ export struct HistoryPage {
         }
         .padding(16)
       }
-      
-      // Debug Info Area (Only for development, can be removed in production)
+
       // if (this.debugInfo) {
       //   Text(this.debugInfo)
       //     .fontSize(10)
@@ -274,7 +293,6 @@ export struct HistoryPage {
       ForEach(records, (item: HistoryRecord) => {
         Row() {
           Column() {
-            // 在单人卡片模式下，不再需要显示名字，因为卡片标题已经有了
             // 显示 Start - End 时间段
             Text(`${item.startTime} - ${item.endTime}`) 
               .fontSize(16)
@@ -286,7 +304,7 @@ export struct HistoryPage {
           Text(item.status)
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor(this.getStatusColor(item.status))
+            .fontColor(getActivityColor(item.status))
         }
         .width('100%')
         .margin({ bottom: 25 })
@@ -303,37 +321,7 @@ export struct HistoryPage {
       }
   }
 
-  getStatusColor(status: ActivityStatus | string): string {
-    switch (status) {
-      case ActivityStatus.FALLEN:
-      case '跌倒':
-      case '摔倒':
-        return '#EF4444'; // Red
 
-      case ActivityStatus.STILL:
-      case '静止':
-        return '#2da44e'; // Green
-
-      case ActivityStatus.WALKING:
-      case '正常行走':
-      case ActivityStatus.SITTING:
-      case '坐下':
-      case ActivityStatus.STANDING:
-      case '站立':
-      case ActivityStatus.JOGGING:
-      case '慢跑':
-      case ActivityStatus.RUNNING:
-      case '快跑':
-      case ActivityStatus.GOING_UPSTAIRS:
-      case '上楼':
-      case ActivityStatus.GOING_DOWNSTAIRS:
-      case '下楼':
-        return '#3b64cc'; // Blue
-
-      default:
-        return '#3b64cc'; // Default Blue
-    }
-  }
 }
 
 // 定义卡片样式的装饰器（样式复用）

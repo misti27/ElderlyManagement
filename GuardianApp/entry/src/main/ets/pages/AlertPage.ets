@@ -2,8 +2,9 @@ import { AlertRecord, AlertType, AlertLevel, AlertStatus, Elderly, ActivityStatu
 import { ElderlyLocal, LocationCoords, DeviceInfoLocal } from '../model/ViewModels';
 import { HttpUtil } from '../utils/HttpUtil';
 import promptAction from '@ohos.promptAction';
+import { MockData } from '../utils/MockData'; // 引入模拟数据
 
-// 定义等级样式的接口，解决 ArkTS 编译报错
+// 定义等级样式的接口
 interface AlertLevelStyle {
   color: string;
   bgColor: string;
@@ -18,12 +19,34 @@ export struct AlertPage {
   @State selectedDateIndex: number = 0;
   @State isLoading: boolean = false;
 
-  // Generate date list (First is "All Time")
   private dateOptions: string[] = ['全部时间', ...this.generateDateList(30)];
 
   aboutToAppear() {
-    this.fetchElderlyList();
-    this.fetchAlerts();
+    const isGuest = AppStorage.Get('isGuest') as boolean | undefined;
+    if (isGuest) {
+      this.loadMockData();
+    } else {
+      this.fetchElderlyList();
+      this.fetchAlerts();
+    }
+  }
+
+  loadMockData() {
+    console.info('Loading mock data for AlertPage...');
+    // 1. 加载模拟的长辈列表
+    const allOptionData: Record<string, Object> = {
+      'id': 'all', 'name': '全部长辈', 'age': 0, 'avatarUrl': '', 'phone': '',
+      'currentStatus': ActivityStatus.UNKNOWN, 'currentLocation': '',
+      'locationCoords': new LocationCoords(), 'device': new DeviceInfoLocal()
+    };
+    const allOption = new ElderlyLocal(allOptionData);
+    const mockElders = MockData.elderlyList.map(item => new ElderlyLocal(item));
+    this.elderlyList = [allOption, ...mockElders];
+
+    // 2. 加载模拟的警报
+    this.alerts = MockData.alerts;
+
+    promptAction.showToast({ message: '已加载模拟警报数据' });
   }
 
   generateDateList(days: number): string[] {
@@ -39,7 +62,6 @@ export struct AlertPage {
     return list;
   }
 
-  // --- 原有逻辑保持不变 ---
   async fetchElderlyList() {
     const locationCoords = new LocationCoords();
     locationCoords.latitude = 0;
@@ -108,7 +130,6 @@ export struct AlertPage {
     promptAction.showToast({ message: newStatus === AlertStatus.CONFIRMED ? '已确认' : '已解除' });
   }
 
-  // 这里的函数增加了明确的返回类型定义
   getLevelStyles(level: AlertLevel): AlertLevelStyle {
     if (level === AlertLevel.HIGH) {
       return { color: '#E64545', bgColor: '#FFF1F0', tag: '紧急警报' };
@@ -208,7 +229,6 @@ export struct AlertPage {
     Column() {
       Scroll() {
         Column({ space: 16 }) {
-          // --- 完全保留您的原始查询条件 UI ---
           Column() {
             Text('查询条件')
               .fontSize(20)
@@ -309,7 +329,7 @@ export struct AlertPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F4F6F9') // 淡淡的灰蓝色底色，衬托白色卡片
+    .backgroundColor('#F4F6F9')
   }
 }
 

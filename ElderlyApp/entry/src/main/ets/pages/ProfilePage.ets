@@ -138,7 +138,14 @@ export struct ProfilePage {
   aboutToAppear() {
     this.editName = this.currentUser.name;
     this.editPhone = this.currentUser.phone;
-    this.fetchGuardians();
+
+    // 判断是否为游客模式
+    if (AppStorage.Get('isGuest') === true) {
+      console.info('[ProfilePage] Guest mode. Loading mock guardians.');
+      this.guardians = MockData.guardians;
+    } else {
+      this.fetchGuardians();
+    }
   }
 
   async fetchGuardians() {

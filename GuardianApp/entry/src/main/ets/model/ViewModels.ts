@@ -1,6 +1,5 @@
 import { Elderly, ActivityStatus, DeviceInfo } from './Types';
 
-// Local class implementations for strict typing and initialization
 export class LocationCoords {
   latitude: number = 0;
   longitude: number = 0;
