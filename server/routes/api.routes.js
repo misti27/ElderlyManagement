@@ -83,6 +83,80 @@ router.post("/auth/login/guardian", async (req, res) => {
     }
 });
 
+router.post("/auth/register/guardian", async (req, res) => {
+    const { name, phone, password } = req.body;
+
+    if (!name || !phone || !password) {
+        return res.status(400).json({ message: "姓名、手机和密码不能为空" });
+    }
+
+    try {
+        // 1. 检查手机号是否已存在
+        const existingUser = await sequelize.query("SELECT * FROM guardian_user WHERE phone = ?", {
+            replacements: [phone],
+            type: QueryTypes.SELECT
+        });
+
+        if (existingUser.length > 0) {
+            return res.status(409).json({ message: "该手机号已被注册" }); // 409 Conflict
+        }
+
+        // 2. 插入新用户
+        // !!! 安全警告: 密码应进行哈希加盐处理 (e.g., using bcrypt) !!!
+        // const hashedPassword = await bcrypt.hash(password, 10);
+        await sequelize.query(
+            "INSERT INTO guardian_user (name, phone, password, create_time, update_time) VALUES (?, ?, ?, NOW(), NOW())",
+            {
+                replacements: [name, phone, password], // 在生产中应使用 hashedPassword
+                type: QueryTypes.INSERT
+            }
+        );
+
+        res.status(201).json({ success: true, message: "注册成功" }); // 201 Created
+
+    } catch (err) {
+        console.error("Registration error:", err);
+        res.status(500).json({ message: "服务器内部错误" });
+    }
+});
+
+router.post("/auth/forgot-password/request-code", async (req, res) => {
+    const { phone } = req.body;
+    if (!phone) {
+        return res.status(400).json({ message: "手机号不能为空" });
+    }
+    // 模拟发送验证码
+    console.log(`向手机 ${phone} 发送密码重置验证码 (模拟)`);
+    res.json({ success: true, message: "验证码已发送 (模拟)" });
+});
+
+router.post("/auth/forgot-password/reset", async (req, res) => {
+    const { phone, code, newPassword } = req.body;
+    if (!phone || !code || !newPassword) {
+        return res.status(400).json({ message: "手机号、验证码和新密码不能为空" });
+    }
+
+    // 模拟验证码校验
+    if (code !== '123456') { // 假设万能验证码为 123456
+        return res.status(400).json({ message: "验证码错误" });
+    }
+
+    try {
+        // !!! 安全警告: 密码应进行哈希加盐处理 !!!
+        await sequelize.query(
+            "UPDATE guardian_user SET password = ? WHERE phone = ?",
+            {
+                replacements: [newPassword, phone],
+                type: QueryTypes.UPDATE
+            }
+        );
+        res.json({ success: true, message: "密码重置成功" });
+    } catch (err) {
+        console.error("Password reset error:", err);
+        res.status(500).json({ message: "服务器内部错误" });
+    }
+});
+
 // ==========================================
 // Elderly Routes
 // ==========================================

@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>老年人监护系统-接口文档</title>
+<meta charset="utf-8" />
+<style>
+    @charset "UTF-8";
+    html, body, h1, h2, h3, h4, h5, h6, p, blockquote { margin: 0; padding: 0; font-weight: normal; -webkit-font-smoothing: antialiased; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", SimSun, sans-serif; font-size: 14px; line-height: 28px; color: #393838; position: relative; }
+    table { margin: 12px 0 18px 0; border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #ddd; padding: 5px 12px; text-align: left; }
+    th { padding: 8px 12px; background-color: #f2f2f2; }
+    a { color: #34495e; text-decoration: none; }
+    a:hover { color: #007bff; }
+    p { padding-left: 10px; margin-bottom: 10px; }
+    h1 { color: #2c3e50; font-weight: 600; font-size: 36px; padding-bottom: 16px; border-bottom: 1px solid #ddd; line-height: 50px; margin-bottom: 20px; }
+    h2 { font-size: 28px; padding-top: 25px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    h3 { clear: both; font-weight: 500; margin-top: 25px; margin-bottom: 15px; border-left: 4px solid #007bff; padding-left: 10px; font-size: 20px; }
+    code { background-color: #f4f4f4;  color: #c7254e;  font-family: 'SFMono-Regular', Consolas ; padding: 2px 4px;  border-radius: 4px;  }
+    pre { display: block; padding: 14px; margin: 10px 0 18px; line-height: 1.6; font-size: 13px; border: 1px solid #d9d9d9; white-space: pre-wrap; word-wrap: break-word; background: #f8f9fa; border-radius: 4px; }
+    .container { display: flex; }
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; overflow-y: auto; width: 280px; background: #f8f9fa; border-right: 1px solid #ddd; padding-top: 20px; }
+    .sidebar ul { list-style-type: none; padding: 0; margin: 0; }
+    .sidebar > ul > li > a { font-size: 18px; font-weight: 500; color: #333; padding: 10px 20px; display: block; }
+    .sidebar > ul > li > ul > li a { font-size: 15px; color: #555; padding: 5px 35px; display: block; }
+    .sidebar a:hover { background-color: #e9ecef; }
+    .content { margin-left: 300px; padding: 20px 40px; max-width: 800px; }
+    .method-post { color: #28a745; font-weight: bold; }
+    .method-get { color: #007bff; font-weight: bold; }
+    .method-put { color: #fd7e14; font-weight: bold; }
+    .method-delete { color: #dc3545; font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="sidebar">
+        <ul>
+            <li><a href="#common-api">通用接口</a>
+                <ul>
+                    <li><a href="#auth-login">用户登录</a></li>
+                </ul>
+            </li>
+            <li><a href="#web-api">Web管理端接口</a>
+                <ul>
+                    <li><a href="#web-get-elderly-list">获取被监护人列表</a></li>
+                    <li><a href="#web-get-elderly-detail">获取老人详情</a></li>
+                    <li><a href="#web-get-alerts">查询报警记录</a></li>
+                    <li><a href="#web-get-history">查询历史活动</a></li>
+                </ul>
+            </li>
+            <li><a href="#app-api">移动端接口</a>
+                <ul>
+                    <li><a href="#app-elderly-api">老人端</a></li>
+                    <li><a href="#app-guardian-api">监护人端</a></li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+    <div class="content">
+        <h1>老年人监护系统-接口文档</h1>
+
+        <h2 id="common-api">通用接口</h2>
+        <h3 id="auth-login">用户登录</h3>
+        <p><strong>接口描述：</strong> 老人、监护人或管理员登录，获取访问令牌。</p>
+        <p><strong>Path：</strong> <code>/api/auth/login/elderly</code> 或 <code>/api/auth/login/guardian</code></p>
+        <p><strong>Method：</strong> <span class="method-post">POST</span></p>
+        <h4>请求参数 (Body)</h4>
+        <table>
+            <thead><tr><th>参数名称</th><th>类型</th><th>是否必须</th><th>备注</th></tr></thead>
+            <tbody><tr><td>phone</td><td>string</td><td>是</td><td>用户手机号</td></tr></tbody>
+        </table>
+        <h4>返回数据</h4>
+        <pre><code>{
+  "token": "mock-elderly-token-1678886400000",
+  "user": {
+    "id": "1",
+    "name": "张建国",
+    "phone": "13800138000",
+    "role": "elderly",
+    "age": 75,
+    "emergencyPhone": "13900139000",
+    "avatarUrl": "http://example.com/avatar.png",
+    "address": "北京市XX区XX街道XX号"
+  }
+}</code></pre>
+
+        <h2 id="web-api">Web管理端接口</h2>
+        <h3 id="web-get-elderly-list">获取被监护人列表</h3>
+        <p><strong>接口描述：</strong> 获取当前管理员/监护人账户下所有老人的概览信息。</p>
+        <p><strong>Path：</strong> <code>/api/guardian/elderly</code></p>
+        <p><strong>Method：</strong> <span class="method-get">GET</span></p>
+        <h4>请求参数 (Headers)</h4>
+        <table>
+            <thead><tr><th>参数名称</th><th>类型</th><th>是否必须</th><th>备注</th></tr></thead>
+            <tbody><tr><td>Authorization</td><td>string</td><td>是</td><td>登录后获取的Token</td></tr></tbody>
+        </table>
+        <h4>返回数据</h4>
+        <pre><code>[
+  {
+    "id": "1",
+    "name": "张建国",
+    "age": 75,
+    "relation": "父亲",
+    "avatarUrl": "http://example.com/avatar.png",
+    "phone": "13800138000",
+    "currentStatus": "正常行走",
+    "currentLocation": "奥林匹к公园",
+    "device": {
+      "batteryLevel": 80,
+      "isOnline": true
+    }
+  }
+]</code></pre>
+
+        <h3 id="web-get-elderly-detail">获取老人详情</h3>
+        <p><strong>Path：</strong> <code>/api/guardian/elderly/:id</code></p>
+        <p><strong>Method：</strong> <span class="method-get">GET</span></p>
+        <h4>请求参数 (Path)</h4>
+        <table>
+            <thead><tr><th>参数名称</th><th>类型</th><th>是否必须</th><th>备注</th></tr></thead>
+            <tbody><tr><td>id</td><td>string</td><td>是</td><td>老人ID</td></tr></tbody>
+        </table>
+        <h4>返回数据</h4>
+        <pre><code>{
+  "id": "1",
+  "name": "张建国",
+  "age": 75,
+  "avatarUrl": "http://example.com/avatar.png",
+  "phone": "13800138000",
+  "currentStatus": "正常行走",
+  "currentLocation": "奥林匹к公园",
+  "locationCoords": { "latitude": 39.9, "longitude": 116.4 },
+  "device": { "deviceId": "dev001", "name": "智能手表", "batteryLevel": 85, "isOnline": true }
+}</code></pre>
+
+        <h3 id="web-get-alerts">查询报警记录</h3>
+        <p><strong>Path：</strong> <code>/api/guardian/alerts</code></p>
+        <p><strong>Method：</strong> <span class="method-get">GET</span></p>
+        <h4>请求参数 (Query)</h4>
+        <table>
+            <thead><tr><th>参数名称</th><th>类型</th><th>是否必须</th><th>备注</th></tr></thead>
+            <tbody>
+                <tr><td>elderlyId</td><td>string</td><td>否</td><td>筛选指定的老人ID，'all'为全部</td></tr>
+                <tr><td>date</td><td>string</td><td>否</td><td>筛选指定日期 (格式: YYYY-MM-DD)</td></tr>
+            </tbody>
+        </table>
+        <h4>返回数据</h4>
+        <pre><code>[
+  {
+    "id": "101",
+    "elderlyId": "1",
+    "type": "跌倒报警",
+    "elderlyName": "张建国",
+    "time": "2026-03-06 10:30:00",
+    "description": "检测到老人跌倒",
+    "location": "家中客厅",
+    "level": 3,
+    "status": 0
+  }
+]</code></pre>
+
+        <h3 id="web-get-history">查询历史活动</h3>
+        <p><strong>Path：</strong> <code>/api/stats/history/:elderlyId</code></p>
+        <p><strong>Method：</strong> <span class="method-get">GET</span></p>
+        <h4>请求参数 (Path & Query)</h4>
+        <table>
+            <thead><tr><th>参数名称</th><th>位置</th><th>类型</th><th>是否必须</th><th>备注</th></tr></thead>
+            <tbody>
+                <tr><td>elderlyId</td><td>Path</td><td>string</td><td>是</td><td>老人ID, 'all'为全部</td></tr>
+                <tr><td>date</td><td>Query</td><td>string</td><td>否</td><td>筛选指定日期 (格式: YYYY-MM-DD)</td></tr>
+            </tbody>
+        </table>
+        <h4>返回数据</h4>
+        <pre><code>[
+  {
+    "id": "hist001",
+    "status": "正常行走",
+    "startTime": "09:30",
+    "endTime": "10:15",
+    "duration": "45分钟"
+  }
+]</code></pre>
+
+        <h2 id="app-api">移动端接口</h2>
+        <h3 id="app-elderly-api">老人端 (ElderlyApp)</h3>
+        <p><strong>获取个人信息</strong></p>
+        <p>Path: <code>/api/elderly/profile</code> | Method: <span class="method-get">GET</span></p>
+        <hr>
+        <p><strong>获取监护人列表</strong></p>
+        <p>Path: <code>/api/elderly/guardians</code> | Method: <span class="method-get">GET</span></p>
+        <hr>
+        <p><strong>上报健康状态</strong></p>
+        <p>Path: <code>/api/elderly/status</code> | Method: <span class="method-post">POST</span></p>
+        <p>Body: <code>{ "status": "正常行走", "location": "公园" }</code></p>
+        <hr>
+        <p><strong>上报位置信息</strong></p>
+        <p>Path: <code>/api/elderly/location</code> | Method: <span class="method-post">POST</span></p>
+        <p>Body: <code>{ "latitude": 39.9, "longitude": 116.4, "address": "奥林匹к公园" }</code></p>
+        <hr>
+        <p><strong>发起紧急呼叫 (SOS)</strong></p>
+        <p>Path: <code>/api/elderly/sos</code> | Method: <span class="method-post">POST</span></p>
+        <hr>
+        <p><strong>绑定/解绑监护人</strong></p>
+        <p>Path: <code>/api/elderly/bind</code> 或 <code>/api/elderly/unbind</code> | Method: <span class="method-post">POST</span></p>
+        <p>Body (bind): <code>{ "phone": "13912345678" }</code></p>
+        <p>Body (unbind): <code>{ "guardianId": "2" }</code></p>
+
+        <h3 id="app-guardian-api">监护人端 (GuardianApp)</h3>
+        <p>监护人端App复用Web管理端的大部分接口，例如:</p>
+        <ul>
+            <li><code>GET /api/guardian/elderly</code> (获取被监护人列表)</li>
+            <li><code>GET /api/guardian/elderly/:id</code> (获取老人详情)</li>
+            <li><code>GET /api/guardian/alerts</code> (查询报警记录)</li>
+            <li><code>GET /api/stats/history/:elderlyId</code> (查询历史活动)</li>
+        </ul>
+        <p>此外，也包含独立的绑定/解绑接口：</p>
+        <p><strong>绑定/解绑老人</strong></p>
+        <p>Path: <code>/api/guardian/bind</code> 或 <code>/api/guardian/unbind</code> | Method: <span class="method-post">POST</span></p>
+        <p>Body (bind): <code>{ "phone": "13800138000" }</code></p>
+        <p>Body (unbind): <code>{ "elderlyId": "1" }</code></p>
+    </div>
+</div>
+</body>
+</html>

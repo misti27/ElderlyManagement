@@ -1,4 +1,3 @@
-
 export enum ActivityStatus {
   FALLEN = '跌倒',
   STILL = '静止',
@@ -46,14 +45,14 @@ export interface Elderly {
   avatarUrl: string;
   phone: string;
   currentStatus: ActivityStatus;
-  currentLocation: string; // "北京市朝阳区..."
+  currentLocation: string;
   locationCoords: { latitude: number, longitude: number };
   device: DeviceInfo;
 }
 
 export interface AlertRecord {
   id: string;
-  elderlyId?: string; // Added for filtering
+  elderlyId?: string;
   type: AlertType;
   elderlyName: string;
   time: string;
@@ -65,10 +64,11 @@ export interface AlertRecord {
 
 export interface HistoryRecord {
   id: string;
-  elderlyId?: string;   // Added for filtering
-  elderlyName?: string; // Optional, for aggregated view
+  elderlyId?: string;
+  elderlyName?: string;
+  date: string;        // 日期，格式 "YYYY-MM-DD"，用于按天过滤
   status: ActivityStatus;
-  startTime: string;
-  endTime: string;
-  duration: string; // "30分钟"
+  startTime: string;   // 当天时间 "HH:MM:SS"
+  endTime: string;     // 当天时间 "HH:MM:SS"
+  duration: string;    // "30分钟"
 }
